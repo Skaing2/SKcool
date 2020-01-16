@@ -1,0 +1,219 @@
+---
+title: "Final Project: New York Airbnb"
+author: "Sengthay Kaing"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:  
+    keep_md: true
+    toc: true
+    toc_float: true
+    code_folding: hide
+    fig_height: 6
+    fig_width: 12
+    fig_align: 'center'
+---
+
+```{r, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+```{r load_libraries, include=FALSE}
+# Use this R-Chunk to load all your libraries!
+#install.packages("tidyverse") # run this line once in console to get package
+library(tidyverse)
+library(reader)
+library(leaflet)
+library(dplyr)
+library(ggrepel)
+library(plotly)
+library(tidyr)
+library(USAboundaries)
+library(lubridate)
+library(hrbrthemes)
+library(htmltools)
+library(rgdal)
+library(geojsonio)
+
+```
+
+```{r load_data}
+# Use this R-Chunk to import all your datasets!
+NYC_airbnb <- read_csv("~/Desktop/AB_NYC_2019.csv") %>% 
+  filter(is.na(last_review) == FALSE) %>% 
+  filter(is.na(reviews_per_month) == FALSE)
+View(NYC_airbnb)
+```
+
+## Background
+     Airbnb was founded by three friends who are Brian Chesky, Nathan Belcharczyk and Joe Gebbia about a decade ago. The current CEO of this giant company is Brian Chesky. Since the beginning of Airbnb in 2008, people are able to expand their traveling unlike before with a unique experience of being neither guests or hosts. In this dataset which is the open public data from Airbnb, I will analyze the price of the review of millions of listings. data that can be analyzed and used for security, business decisions, understanding of customers' and providers' behavior and performance on the platform, seeing through the leaflet maps, implementation of innovative additional services and much more by using R programming.
+
+## The Average Price of Each Neighbourhood 
+
+```{r}
+#Average price of each Neighborhood 
+NYC_airbnb %>% 
+  group_by(neighbourhood_group) %>% 
+  summarise(price = mean(price)) %>% 
+  ggplot(aes(x = neighbourhood_group, y = price, fill = neighbourhood_group)) +
+  geom_bar(stat = "identity") +
+  scale_y_continuous(breaks = seq(0, 200, by = 25)) +
+  theme_classic() + 
+    labs( x = "The Five Neighbourhoods in New York City", y = "Price",
+        title = paste("The Average Price of Renting Airbnb in New York City by NeighbourHood"), color = "Neighbour")
+```
+    According to this graph from the Airbnb dataset, we can see that Manhattan has the highest average price in New York City. This is due to there are many apartments there that people can rent. Plus, in my opinion, I believe that when people want to go to visit New York City, they want to stay in Manhattan because they are fewer crimes and it features what New York City is all about. Furthermore, the cost of living in New York City is high. Therefore, most new yorkers who live in the Manhattan neighborhood want to earn some casts through Airbnb.
+  
+## The Mount of Price that the Customers Spend in Each Neighbourhood 
+```{r}
+#using vline to demonstrate the price. 
+ggplot(NYC_airbnb, aes(x = neighbourhood_group, y = price)) +
+  geom_violin(aes(fill = neighbourhood_group)) +
+  scale_fill_continuous(breaks = seq(0, 400, by = 25)) +
+  scale_y_continuous(breaks = seq(0, 600, by = 50)) +
+  scale_fill_manual(values = c("red", "blue", "green", "yellow", "purple")) +
+  theme_bw() +
+  coord_cartesian(ylim = c(0, 600)) +
+   labs( x = "Neighbourhood Group", y = "Price",
+        title = paste("The Mount of Price that the Customers Spend in Each Neighbourhood"), color = "Neighbourhood Group")
+```
+    For this beautiful graph, with an arithmetical table and a violin plot, we can utterly observe a couple of things about the allocation of prices for Airbnb in NYC boroughs. By looking at the graph in detail, without a doubt, we can indicate that Manhattan has the highest range of prices for the listings with $150 price as average observation, followed by Brooklyn with $90 per night. Queens and Staten Island appear to have very similar distributions. Not surprisingly, the Bronx is the cheapest option for the guests. This distribution and density of prices were completely expected; for instance, as it is no secret that Manhattan is one of the most expensive places in the world to live in, where the Bronx and another neighbourhood on other hand appear to have lower standards of living.
+
+## The Search Options for Each Neighbourhood Grop
+```{r}
+# Filtering only each neighborhood. 
+Manhattan <- NYC_airbnb %>% 
+  filter(neighbourhood_group == "Manhattan")
+
+Brooklyn <- NYC_airbnb %>% 
+  filter(neighbourhood_group == "Brooklyn")
+
+Queens <- NYC_airbnb %>% 
+  filter(neighbourhood_group == "Queens")
+
+Bronx <- NYC_airbnb %>% 
+  filter(neighbourhood_group == "Bronx")
+
+Staten_Island <- NYC_airbnb %>% 
+  filter(neighbourhood_group == "Staten Island")
+```
+
+```{r}
+pal <- colorFactor(topo.colors(5), NYC_airbnb$room_type)
+
+airbnb_nb <- leaflet() %>% 
+        addTiles(group = "CartoDB.Carto") %>% 
+        addProviderTiles("Esri", group = "Delorme") %>% 
+        addProviderTiles("Esri", group = "Esri") %>% 
+        addProviderTiles(providers$Stamen.Toner, group = "Toner") %>%
+        addProviderTiles(providers$Stamen.TonerLite, group = "Toner Lite") %>% 
+        addCircleMarkers(data = Manhattan, radius = 0.01, label = ~name,
+                         color = ~pal(room_type),  group = "Manhattan") %>% 
+        addCircleMarkers(data = Brooklyn, radius = 0.01, label = ~name,
+                           color = ~pal(room_type), group = "Brooklyn")  %>% 
+        addCircleMarkers(data = Queens, radius = 0.01, label = ~name,
+                         color = ~pal(room_type), group = "Queens")  %>% 
+        addCircleMarkers(data = Bronx, radius = 0.01, label = ~name,
+                         color = ~pal(room_type), group = "Bronx")  %>% 
+        addCircleMarkers(data = Staten_Island, radius = 0.01, label = ~name,
+                         color = ~pal(room_type), group = "Staten Island")  %>% 
+        addLayersControl(baseGroups = c("CartoDB.Carto", "Esri", "Esri", "Toner", "Toner Lite"), 
+                         overlayGroups = c("manhattan_dat", "brooklyn_dat", "queens_dat", "bronx_dat", "staten_island_dat")) %>% 
+        setView(lng = -73.98928, lat = 40.75042, zoom = 10)
+
+airbnb_nb
+```
+By searching through this map, guests can find the neighbourhood group they want to stay. This search method will also show what area they want to of New York City they want to live in. Every house or apartment or room will show the host name display. 
+
+## The Room Types that Guests Rent in New York City
+```{r}
+#using styling with scales to see the private room or apartment/Entire home. 
+ggplot(data = NYC_airbnb) +
+  geom_point(mapping = aes(x = number_of_reviews, y = minimum_nights, color = room_type, alpha = 0.01)) +
+  scale_x_continuous(breaks = seq(0, 400, by = 50)) +
+  scale_y_continuous(breaks = seq(0, 400, by = 50)) +
+  scale_color_discrete() +
+  theme_bw() + 
+  facet_wrap(~room_type) +
+  labs( x = "Number of Reviews", y = "Number of Nights",
+        title = paste("The Room Types that Guests Rent"), color = "Room Types") +
+   coord_cartesian(xlim = c(0 ,200), ylim = c(40, 300)) 
+```
+      There are three different or most common room types for guests to rent. By analyzing the room types in the Airbnb dataset, we can see bigger and better pictures of how guests want from the company. Clearly, most guests want their own privacy or freedom when they go to visit New York City whether for a business trip or a vacation. Moreover, renting the entire apartment or home have fewer problems, unlike a shared room. Shared-room can be dangerous or uncomfortable when guests live with strangers. From a business point of view, Airbnb encourages all hosts to have a private room with a cheap alternative.
+
+## Search Option to Find the Room Types the Guests Want
+```{r}
+private_room <- NYC_airbnb %>% 
+  filter(room_type == "Private room")
+
+entire_room <- NYC_airbnb %>% 
+  filter(room_type == "Entire home/apt")
+
+shared_room <- NYC_airbnb %>% 
+  filter(room_type == "Shared room")
+```
+
+```{r}
+pal <- colorFactor(topo.colors(5), NYC_airbnb$room_type)
+
+airbnb_nb <- leaflet() %>% 
+        addTiles(group = "Esri.DeLormo") %>% 
+        addProviderTiles("CartoDB", group = "Carto") %>% 
+        addProviderTiles("Esri", group = "Esri") %>% 
+        addCircleMarkers(data = private_room, radius = 0.01, label = ~name,
+                         color = ~pal(room_type),  group = "Private room") %>% 
+        addCircleMarkers(data = entire_room, radius = 0.01, label = ~name,
+                           color = ~pal(room_type), group = "Brooklyn")  %>% 
+        addCircleMarkers(data = shared_room, radius = 0.01, label = ~name,
+                         color = ~pal(room_type), group = "Queens")  %>% 
+        addLayersControl(baseGroups = c("Esri.DeLorme", "Carto", "Esri"), 
+                         overlayGroups = c("shared_room", "entire_room", "private_room")) %>% 
+        setView(lng = -73.98928, lat = 40.75042, zoom = 15)
+
+airbnb_nb
+```
+By searching through this map, guests can find the room type they want to stay. This search method will also show what area they want to of New York City they want to live in. Every house or apartment or room will show the host name display. 
+
+## Airbub Guests' Reviews in each Neighbourhood Group
+```{r}
+# I want to get only the Year to get the reviews from the guests. 
+review <- NYC_airbnb %>% 
+  separate(last_review, into = "Year", sep = "-") 
+```
+
+```{r}
+airbnb_review <- review
+airbnb_review %>% 
+  ggplot(aes(x = neighbourhood_group, y = reviews_per_month, color = neighbourhood_group)) +
+  geom_boxplot() +
+  theme_classic() + 
+  scale_y_continuous(breaks = seq(0, 20, by = 1)) + 
+  coord_cartesian(ylim = c(0, 19)) + 
+  geom_hline(yintercept = mean(review$reviews_per_month), linetype = "dashed", color = "purple", size = 1) + 
+  labs(x = 'Neighbourhood Groups in New York City', y = 'Number of Reviews', 
+       title = "Airbnb's Customers Reviews in 2019", subtitle = "Reviewing on how customer think about each NeighbourHood",
+       color = "Neighbourhood Group", caption = "As we can see that Queens has the best reviews because the price to rent there is afforable") 
+```
+The reviews of the hosts are important for guests to trust and stay in the apartment or house or room from the host. This boxplot graph shows each neighborhood's review from the guests. This graph is 100% accurate because Queens has the best reviews due to its afforable price to rent in New York City. 
+
+## Fast Check for the reviews for the area In New York City
+```{r}
+# Make each sector of colleges searchable 
+NYC_airbnb %>% 
+    leaflet() %>% 
+        addTiles() %>% 
+        # Sanitize any html in our labels
+        addCircleMarkers(radius = 2, label = ~htmlEscape(number_of_reviews),
+        # Color code colleges by sector using the `pal` color palette
+                         color = ~pal(neighbourhood),
+                         # Cluster all colleges using `clusterOptions`
+                          clusterOptions = markerClusterOptions()) 
+```
+This search map enables guests to see the reviews of Airbnb in New York City fast and effective. By using cluster options in leaflet package, guests can search and zoom to find the best reviews from 0 to 5 stars to stay. 
+
+## Conclusions
+      This Airbnb ('AB_NYC_2019') dataset for the 2019 year appeared to be a very rich dataset with a variety of columns that allowed us to do deep data exploration on each significant column presented. First, we have found hosts that take good advantage of the Airbnb platform and provide the most listings; we found that our top host has 327 listings. After that, we proceeded with analyzing boroughs and neighborhood listing densities and what areas were more popular than another. Next, we put good use of our latitude and longitude columns and used to create a geographical heatmap color-coded by the price of listings. Further, we came back to the first column with name strings and had to do a bit more coding to parse each title and analyze existing trends on how listings are named as well as what was the count for the most used words by hosts. Lastly, we found the most reviewed listings and analyzed some additional attributes. For our data exploration purposes, it also would be nice to have couple additional features, such as positive and negative numeric (0-5 stars) reviews or 0-5 star average review for each listing; addition of these features would help to determine the best-reviewed hosts for NYC along with 'number_of_review' column that is provided. Overall, we discovered a very good number of interesting relationships between features and explained each step of the process. This data analytics is very much mimicked on a higher level on Airbnb Data/Machine Learning team for better business decisions, control over the platform, marketing initiatives, implementation of new features and much more. Therefore, I hope this kernel helps everyone!
+
+
+
+
+
